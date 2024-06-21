@@ -1,3 +1,4 @@
+from user.application.send_welcome_email_task import SendWelcomeEmailTask
 from fastapi import status
 from common.auth import Role, create_access_token
 from datetime import datetime
@@ -18,15 +19,24 @@ class UserService:
         self,
         email_service: EmailService,  
         user_repo: IUserRepository,
+        ulid: ULID,
+        crypto: Crypto,
+        send_welcome_email_task: SendWelcomeEmailTask,
+
     ):
         self.user_repo = user_repo
-        self.ulid = ULID()
-        self.crypto = Crypto()
+        self.ulid = ulid
+        self.crypto = crypto
         self.email_service = email_service
+        self.send_welcome_email_task = send_welcome_email_task
 
     def create_user(
         self,
-        background_tasks: BackgroundTasks,  
+        # background_tasks: BackgroundTasks,  
+        name: str,
+        email: str,
+        password: str,
+        memo: str | None = None,
     ):
         _user = None
         try:
@@ -49,10 +59,8 @@ class UserService:
             updated_at=now,
         )
         self.user_repo.save(user)
-        background_tasks.add_task(
-            self.email_service.send_email, user.email
-        )
-
+        SendWelcomeEmailTask().delay(user.email)
+        self.send_welcome_email_task.delay(user.email)
 
         return user
 
